@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: wordpress_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - internal
+
+  php:
+    build: .
+    container_name: wordpress_php
+    restart: always
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - wordpress_data:/var/www/html
+    working_dir: /var/www/html
+    command: >
+      sh -c "if [ ! -f /var/www/html/wp-config-sample.php ]; then
+               wget https://wordpress.org/latest.zip &&
+               unzip latest.zip &&
+               mv wordpress/* . &&
+               rm -rf wordpress latest.zip &&
+               chown -R www-data:www-data /var/www/html;
+             fi &&
+             php-fpm"
+    networks:
+      - internal
+
+  nginx:
+    image: nginx:latest
+    container_name: wordpress_nginx
+    restart: always
+    depends_on:
+      - php
+    # No ports mapping needed - macvlan gives us direct LAN access
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs/selfsigned.crt:/etc/ssl/certs/selfsigned.crt:ro
+      - ./certs/selfsigned.key:/etc/ssl/private/selfsigned.key:ro
+    networks:
+      internal:
+        # For talking to php-fpm
+      lanbridge:
+        ipv4_address: ${NGINX_IP:-192.168.1.200}
+
+networks:
+  internal:
+    driver: bridge
+  lanbridge:
+    driver: macvlan
+    driver_opts:
+      parent: ${PARENT_INTERFACE:-eno1}
+    ipam:
+      config:
+        - subnet: ${LAN_SUBNET:-192.168.1.0/24}
+          gateway: ${LAN_GATEWAY:-192.168.1.1}
+          ip_range: ${NGINX_IP:-192.168.1.200}/32
+
+volumes:
+  db_data: {}
+  wordpress_data: {}

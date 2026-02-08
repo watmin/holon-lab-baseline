@@ -1,0 +1,27 @@
+# Holon DDoS lab has its own git repo
+holon-lab-ddos/
+
+# Credentials - NEVER commit these
+.env
+admin-cred.txt
+certs/*.key
+certs/*.crt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
